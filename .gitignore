@@ -1,0 +1,20 @@
+# Generated media and processing output
+raw_video.mp4
+processed_video.mp4
+temp/
+*.srt
+*.wav
+publish-result-*.json
+
+# Local secrets and browser/session state
+.env
+.env.*
+*.cookies.json
+storage_state.json
+client_secret*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/

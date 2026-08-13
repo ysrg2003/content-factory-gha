@@ -1,0 +1,170 @@
+name: Process and Publish Short Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: Direct HTTPS URL for the source MP4 file
+        required: true
+        type: string
+      publish_youtube:
+        description: Publish to YouTube Shorts
+        required: true
+        default: true
+        type: boolean
+      publish_instagram:
+        description: Publish to Instagram Reels
+        required: true
+        default: true
+        type: boolean
+      publish_facebook:
+        description: Publish to Facebook Page Reels
+        required: true
+        default: true
+        type: boolean
+      publish_tiktok:
+        description: Publish to TikTok through its official API
+        required: true
+        default: true
+        type: boolean
+      allow_tiktok_browser_fallback:
+        description: Only use cookie-based browser fallback when the official TikTok API step fails
+        required: true
+        default: false
+        type: boolean
+      language:
+        description: Whisper language code
+        required: true
+        default: ar
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: direct-content-publish
+  cancel-in-progress: false
+
+jobs:
+  process-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install --requirement requirements.txt
+
+      - name: Download source video
+        run: |
+          curl --fail --location --retry 3 --retry-delay 3 "${{ inputs.video_url }}" --output raw_video.mp4
+          test -s raw_video.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 raw_video.mp4
+
+      - name: Process video, transcribe, and write metadata
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
+          WHISPER_MODEL: ${{ vars.WHISPER_MODEL || 'base' }}
+        run: |
+          python scripts/pipeline.py raw_video.mp4 processed_video.mp4 --language "${{ inputs.language }}"
+
+      - name: Publish YouTube Short
+        id: youtube
+        if: ${{ inputs.publish_youtube }}
+        continue-on-error: true
+        env:
+          VIDEO_PATH: processed_video.mp4
+          METADATA_PATH: temp/metadata.json
+          YOUTUBE_CLIENT_SECRET_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || 'public' }}
+          YOUTUBE_CATEGORY_ID: ${{ vars.YOUTUBE_CATEGORY_ID || '22' }}
+          YOUTUBE_MADE_FOR_KIDS: ${{ vars.YOUTUBE_MADE_FOR_KIDS || 'false' }}
+        run: python scripts/publish_youtube.py
+
+      - name: Publish Instagram Reel
+        id: instagram
+        if: ${{ inputs.publish_instagram }}
+        continue-on-error: true
+        env:
+          VIDEO_PATH: processed_video.mp4
+          METADATA_PATH: temp/metadata.json
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_INSTAGRAM_ACCOUNT_ID: ${{ secrets.META_INSTAGRAM_ACCOUNT_ID }}
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION || 'v26.0' }}
+        run: python scripts/publish_meta.py --instagram
+
+      - name: Publish Facebook Page Reel
+        id: facebook
+        if: ${{ inputs.publish_facebook }}
+        continue-on-error: true
+        env:
+          VIDEO_PATH: processed_video.mp4
+          METADATA_PATH: temp/metadata.json
+          META_PAGE_ACCESS_TOKEN: ${{ secrets.META_PAGE_ACCESS_TOKEN }}
+          META_FACEBOOK_PAGE_ID: ${{ secrets.META_FACEBOOK_PAGE_ID }}
+          META_GRAPH_VERSION: ${{ vars.META_GRAPH_VERSION || 'v26.0' }}
+        run: python scripts/publish_meta.py --facebook
+
+      - name: Publish TikTok through Content Posting API
+        id: tiktok_api
+        if: ${{ inputs.publish_tiktok }}
+        continue-on-error: true
+        env:
+          VIDEO_PATH: processed_video.mp4
+          METADATA_PATH: temp/metadata.json
+          TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+          TIKTOK_PRIVACY_LEVEL: ${{ vars.TIKTOK_PRIVACY_LEVEL || 'PUBLIC_TO_EVERYONE' }}
+        run: python scripts/publish_tiktok_api.py
+
+      - name: Use TikTok browser fallback only after API failure
+        id: tiktok_fallback
+        if: ${{ inputs.publish_tiktok && inputs.allow_tiktok_browser_fallback && steps.tiktok_api.outcome == 'failure' }}
+        continue-on-error: true
+        env:
+          VIDEO_PATH: processed_video.mp4
+          METADATA_PATH: temp/metadata.json
+          TIKTOK_BROWSER_COOKIES_BASE64: ${{ secrets.TIKTOK_BROWSER_COOKIES_BASE64 }}
+        run: |
+          playwright install --with-deps chromium
+          python scripts/publish_tiktok_browser_fallback.py
+
+      - name: Create execution summary
+        if: ${{ always() }}
+        run: |
+          echo "# Direct publishing summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "No Telegram notification or approval step is used." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Platform | Step outcome | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| YouTube | ${{ steps.youtube.outcome || 'skipped' }} | $(cat publish-result-youtube.json 2>/dev/null || echo 'No result file') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Instagram | ${{ steps.instagram.outcome || 'skipped' }} | $(cat publish-result-instagram.json 2>/dev/null || echo 'No result file') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Facebook | ${{ steps.facebook.outcome || 'skipped' }} | $(cat publish-result-facebook.json 2>/dev/null || echo 'No result file') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| TikTok API | ${{ steps.tiktok_api.outcome || 'skipped' }} | $(cat publish-result-tiktok.json 2>/dev/null || echo 'No result file') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| TikTok browser fallback | ${{ steps.tiktok_fallback.outcome || 'not used' }} | $(cat publish-result-tiktok-browser.json 2>/dev/null || echo 'No result file') |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Retain generated deliverables briefly
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-video-and-metadata-${{ github.run_id }}
+          path: |
+            processed_video.mp4
+            temp/metadata.json
+            temp/subtitles.srt
+            publish-result-*.json
+          if-no-files-found: warn
+          retention-days: 1
