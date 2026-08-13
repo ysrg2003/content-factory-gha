@@ -51,13 +51,16 @@ YouTube / Instagram / Facebook / TikTok
 | `scripts/publish_meta.py` | النشر الرسمي إلى Instagram وFacebook |
 | `scripts/publish_tiktok_api.py` | النشر الرسمي إلى TikTok Direct Post |
 | `scripts/publish_tiktok_browser_fallback.py` | بديل متصفح معزول عند فشل TikTok API فقط |
-| `docs/SETUP.md` | إعداد أسرار منصات النشر |
+| `docs/CREDENTIALS.md` | **المرجع التفصيلي لكل سر ومتغير وOAuth وAPI token، مع روابط وخطوات الحصول عليه** |
+| `docs/SETUP.md` | ملخص إعداد أسرار منصات النشر |
 | `docs/AI_ROUTER_INTEGRATION.md` | إعداد الموجّه، مساراته الاحتياطية، وتشخيص فشله |
 | `tests/validate_project.py` | فحص ساكن لمسارات المشروع وغياب تكامل تليجرام |
 
 ## الخطوة 1: أضف أسرار النشر والذكاء الاصطناعي
 
-افتح مستودع GitHub ثم انتقل إلى **Settings → Secrets and variables → Actions**. أضف أولاً مفاتيح AI Provider Router، ثم مفاتيح المنصات التي ستفعلها فقط.
+اقرأ أولاً **[دليل الاعتمادات والمتغيرات الكامل](docs/CREDENTIALS.md)**. يشرح، خطوةً خطوة، كيفية إنشاء كل مفتاح أو OAuth client أو token، والأذونات المطلوبة وروابط الصفحات الرسمية وطريقة التحقق والتدوير. لا تعتمد على أسماء القيم في الجدول وحدها.
+
+بعد ذلك، افتح مستودع GitHub ثم انتقل إلى **Settings → Secrets and variables → Actions**. أضف أولاً مفاتيح AI Provider Router، ثم مفاتيح المنصات التي ستفعلها فقط.
 
 | الفئة | السر أو المتغير | مكان الشرح |
 | --- | --- | --- |

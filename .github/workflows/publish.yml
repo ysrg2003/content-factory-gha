@@ -76,6 +76,17 @@ jobs:
           pip install --requirement requirements.txt
           pip install ./.ai-provider-router
 
+      - name: Check AI Provider Router configuration
+        env:
+          AI_ROUTER_CONFIG_DIR: .ai-provider-router/config
+          AI_ROUTER_STATE_DB: temp/ai_router.db
+          AI_ROUTER_GEMINI_KEYS_JSON: ${{ secrets.AI_ROUTER_GEMINI_KEYS_JSON }}
+          AI_ROUTER_HF_KEYS_JSON: ${{ secrets.AI_ROUTER_HF_KEYS_JSON }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          mkdir -p temp
+          ai-router --config-dir "$AI_ROUTER_CONFIG_DIR" --state-db "$AI_ROUTER_STATE_DB" summary
+
       - name: Download source video
         run: |
           curl --fail --location --retry 3 --retry-delay 3 "${{ inputs.video_url }}" --output raw_video.mp4

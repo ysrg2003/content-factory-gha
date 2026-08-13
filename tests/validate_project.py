@@ -31,11 +31,21 @@ def main() -> None:
     assert "retention-days: 1" in workflow, "Generated videos must have short retention."
     assert "checkout pinned ai provider router" in workflow, "The workflow must install the pinned AI router."
     assert "ai_router_gemini_keys_json" in workflow, "The workflow must pass AI router secrets."
+    assert "check ai provider router configuration" in workflow, "The workflow must run a safe AI router preflight."
     assert "openai_api_key" not in workflow, "No direct OpenAI key is permitted in the workflow."
 
     pipeline = (ROOT / "scripts" / "pipeline.py").read_text(encoding="utf-8")
     assert "from ai_router import AIRouter, AllProvidersFailed" in pipeline, "Pipeline must call AI Provider Router."
     assert "from openai import" not in pipeline, "Pipeline must not call an AI provider directly."
+
+    credentials_doc = ROOT / "docs" / "CREDENTIALS.md"
+    assert credentials_doc.is_file(), "A detailed credentials guide is required."
+    credentials = credentials_doc.read_text(encoding="utf-8")
+    for name in (
+        "AI_ROUTER_GEMINI_KEYS_JSON", "YOUTUBE_CLIENT_SECRET_JSON", "YOUTUBE_REFRESH_TOKEN",
+        "META_PAGE_ACCESS_TOKEN", "TIKTOK_ACCESS_TOKEN", "TIKTOK_BROWSER_COOKIES_BASE64",
+    ):
+        assert name in credentials, f"{name} must have documented acquisition and rotation guidance."
 
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     for protected in (".env", "processed_video.mp4", "storage_state.json"):
