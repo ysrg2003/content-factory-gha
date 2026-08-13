@@ -53,6 +53,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout pinned AI Provider Router
+        uses: actions/checkout@v4
+        with:
+          repository: ysrg2003/ai-provider-router
+          ref: 6586de3df41f98e1514c91cf697f79928e431aa7
+          path: .ai-provider-router
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -64,8 +71,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes ffmpeg
 
-      - name: Install Python dependencies
-        run: pip install --requirement requirements.txt
+      - name: Install Python dependencies and AI Provider Router
+        run: |
+          pip install --requirement requirements.txt
+          pip install ./.ai-provider-router
 
       - name: Download source video
         run: |
@@ -75,8 +84,12 @@ jobs:
 
       - name: Process video, transcribe, and write metadata
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
+          AI_ROUTER_CONFIG_DIR: .ai-provider-router/config
+          AI_ROUTER_STATE_DB: temp/ai_router.db
+          AI_ROUTER_CHAIN: ${{ vars.AI_ROUTER_CHAIN || 'creative' }}
+          AI_ROUTER_GEMINI_KEYS_JSON: ${{ secrets.AI_ROUTER_GEMINI_KEYS_JSON }}
+          AI_ROUTER_HF_KEYS_JSON: ${{ secrets.AI_ROUTER_HF_KEYS_JSON }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           WHISPER_MODEL: ${{ vars.WHISPER_MODEL || 'base' }}
         run: |
           python scripts/pipeline.py raw_video.mp4 processed_video.mp4 --language "${{ inputs.language }}"
@@ -165,6 +178,7 @@ jobs:
             processed_video.mp4
             temp/metadata.json
             temp/subtitles.srt
+            temp/ai_router.db
             publish-result-*.json
           if-no-files-found: warn
           retention-days: 1

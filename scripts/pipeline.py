@@ -48,48 +48,50 @@ def transcribe(audio: Path, language: str, model_name: str) -> tuple[str, list[d
 
 
 def generate_metadata(transcript: str) -> dict[str, Any]:
-    """Generate strict JSON through OpenAI; no silent publication if this stage fails."""
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is required to generate publishing metadata.")
+    """Create strict metadata through the reusable AI Provider Router only."""
+    try:
+        from ai_router import AIRouter, AllProvidersFailed
+    except ImportError as error:
+        raise RuntimeError(
+            "AI Provider Router is not installed. Install the pinned router package before processing."
+        ) from error
 
-    from openai import OpenAI
-
-    model = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
-    prompt = f"""
-أنت محرر محتوى قصير محترف. أنشئ بيانات وصفية عربية من النص التالي.
-أعد كائناً JSON صالحاً فقط، بلا Markdown وبالمفاتيح التالية حصراً:
+    system_prompt = """
+أنت محرر محتوى قصير محترف. أعد JSON صالحاً فقط، بلا Markdown وبالمفاتيح التالية حصراً:
 - title: عنوان قصير (حد أقصى 90 حرفاً)
 - youtube_description: وصف مناسب ليوتيوب، حتى 3000 حرف
 - instagram_caption: وصف Reel مناسب لإنستغرام، حتى 2200 حرف
 - facebook_caption: وصف Reel مناسب لصفحة فيسبوك، حتى 5000 حرف
 - tiktok_caption: وصف TikTok مناسب، حتى 2200 حرف
 - tags: مصفوفة من 3 إلى 12 وسم يوتيوب من دون #
-- contains_synthetic_media: true أو false
+- contains_synthetic_media: قيمة boolean حقيقية، true أو false
 
 لا تدّعِ حقائق لا تظهر في النص، ولا تضف دعوات مضللة أو ادعاءات طبية/مالية.
-النص:
-{transcript}
 """.strip()
-    client = OpenAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.45,
-    )
-    raw = response.choices[0].message.content or ""
+    user_prompt = f"أنشئ البيانات الوصفية للنص التالي فقط:\n\n{transcript}"
+    config_dir = os.environ.get("AI_ROUTER_CONFIG_DIR", ".ai-provider-router/config")
+    state_db = os.environ.get("AI_ROUTER_STATE_DB", "temp/ai_router.db")
+    chain = os.environ.get("AI_ROUTER_CHAIN", "creative")
+    router = AIRouter(config_dir=config_dir, state_db=state_db)
     try:
-        metadata = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Model returned invalid JSON: {raw[:300]}") from exc
+        metadata = router.complete_json(
+            chain=chain,
+            operation="content_metadata",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
+    except AllProvidersFailed as error:
+        raise RuntimeError(f"All AI Provider Router attempts failed: {error}") from error
+    finally:
+        router.close()
 
     required = {
         "title", "youtube_description", "instagram_caption", "facebook_caption",
         "tiktok_caption", "tags", "contains_synthetic_media",
     }
     missing = required.difference(metadata)
-    if missing or not isinstance(metadata.get("tags"), list):
-        raise RuntimeError(f"Metadata schema is incomplete; missing: {sorted(missing)}")
+    if missing or not isinstance(metadata.get("tags"), list) or not isinstance(metadata.get("contains_synthetic_media"), bool):
+        raise RuntimeError(f"AI Router metadata schema is incomplete or invalid; missing: {sorted(missing)}")
     return metadata
 
 

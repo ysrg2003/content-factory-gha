@@ -29,6 +29,13 @@ def main() -> None:
     assert "steps.tiktok_api.outcome == 'failure'" in workflow, "Fallback must only run after API failure."
     assert "allow_tiktok_browser_fallback" in workflow, "Fallback must require explicit selection."
     assert "retention-days: 1" in workflow, "Generated videos must have short retention."
+    assert "checkout pinned ai provider router" in workflow, "The workflow must install the pinned AI router."
+    assert "ai_router_gemini_keys_json" in workflow, "The workflow must pass AI router secrets."
+    assert "openai_api_key" not in workflow, "No direct OpenAI key is permitted in the workflow."
+
+    pipeline = (ROOT / "scripts" / "pipeline.py").read_text(encoding="utf-8")
+    assert "from ai_router import AIRouter, AllProvidersFailed" in pipeline, "Pipeline must call AI Provider Router."
+    assert "from openai import" not in pipeline, "Pipeline must not call an AI provider directly."
 
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     for protected in (".env", "processed_video.mp4", "storage_state.json"):
