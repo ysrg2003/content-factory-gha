@@ -12,6 +12,8 @@ publish-result-*.json
 *.cookies.json
 storage_state.json
 client_secret*.json
+.tiktok/
+tiktok-oauth-*.json
 
 # Python
 __pycache__/

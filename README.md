@@ -50,6 +50,7 @@ YouTube / Instagram / Facebook / TikTok
 | `scripts/publish_youtube.py` | النشر الرسمي إلى YouTube |
 | `scripts/publish_meta.py` | النشر الرسمي إلى Instagram وFacebook |
 | `scripts/publish_tiktok_api.py` | النشر الرسمي إلى TikTok Direct Post |
+| `scripts/tiktok_oauth_desktop.py` | أداة محلية فعلية لتفويض TikTok OAuth v2 واستخراج token |
 | `scripts/publish_tiktok_browser_fallback.py` | بديل متصفح معزول عند فشل TikTok API فقط |
 | `docs/CREDENTIALS.md` | **المرجع التفصيلي لكل سر ومتغير وOAuth وAPI token، مع روابط وخطوات الحصول عليه** |
 | `docs/SETUP.md` | ملخص إعداد أسرار منصات النشر |
@@ -67,7 +68,7 @@ YouTube / Instagram / Facebook / TikTok
 | AI Provider Router | `AI_ROUTER_GEMINI_KEYS_JSON` أو `AI_ROUTER_HF_KEYS_JSON` أو `HF_TOKEN` | [دليل تكامل الموجّه](docs/AI_ROUTER_INTEGRATION.md) |
 | YouTube | `YOUTUBE_CLIENT_SECRET_JSON` و`YOUTUBE_REFRESH_TOKEN` | [دليل الإعداد](docs/SETUP.md) |
 | Meta | `META_PAGE_ACCESS_TOKEN` و`META_INSTAGRAM_ACCOUNT_ID` و/أو `META_FACEBOOK_PAGE_ID` | [دليل الإعداد](docs/SETUP.md) |
-| TikTok الرسمي | `TIKTOK_ACCESS_TOKEN` | [دليل الإعداد](docs/SETUP.md) |
+| TikTok الرسمي | `TIKTOK_ACCESS_TOKEN` | [دليل الاعتمادات التفصيلي، قسم TikTok](docs/CREDENTIALS.md#61-tiktok_access_token--المسار-الرسمي-الكامل-من-الصفر) |
 | TikTok الاحتياطي | `TIKTOK_BROWSER_COOKIES_BASE64` | [دليل الإعداد](docs/SETUP.md) |
 
 **النتيجة المتوقعة:** تظهر أسماء الأسرار في صفحة GitHub من دون إظهار قيمها. إذا لصقت مفتاحاً في ملف أو سجل أو commit عن طريق الخطأ، ألغِه من مزوّده فوراً واستبدله؛ لا تكتفِ بحذف النص من Git.
@@ -89,6 +90,10 @@ YouTube / Instagram / Facebook / TikTok
 | `language` | `ar` | تفريغ وتعليق عربيان |
 
 **النتيجة المتوقعة:** تمر خطوة **Process video, transcribe, and write metadata** بنجاح، ثم تعرض صفحة Summary حالة كل منصة. إذا فشلت هذه الخطوة برسالة `All AI Provider Router attempts failed`، لا تبدأ أي منصة بالنشر؛ اتبع جدول الأخطاء في [دليل تكامل الموجّه](docs/AI_ROUTER_INTEGRATION.md#استكشاف-الأخطاء).
+
+## الحصول على TikTok Access Token فعلياً
+
+لا تنسخ `client_key` أو `client_secret` إلى `TIKTOK_ACCESS_TOKEN`. افتح [دليل TikTok التفصيلي](docs/CREDENTIALS.md#61-tiktok_access_token--المسار-الرسمي-الكامل-من-الصفر)، سجّل Redirect URI `http://localhost:3455/callback/` في TikTok for Developers، ثم شغّل `scripts/tiktok_oauth_desktop.py` من جهازك المحلي. الأداة تفتح المتصفح، تستقبل موافقة حساب TikTok، وتكتب الناتج المحلي في `.tiktok/tokens.json`; انسخ منه `access_token` فقط إلى GitHub Secret باسم `TIKTOK_ACCESS_TOKEN`. لا يحتاج workflow إلى `client_key` أو `client_secret`.
 
 ## وضع TikTok الاحتياطي
 
@@ -123,3 +128,5 @@ Static project validation passed.
 [1]: https://github.com/ysrg2003/ai-provider-router "AI Provider Router"
 [2]: https://docs.github.com/en/billing/concepts/product-billing/github-actions "GitHub Actions billing"
 [3]: https://developers.tiktok.com/doc/content-posting-api-reference-direct-post "TikTok Content Posting API — Direct Post"
+[4]: https://developers.tiktok.com/doc/login-kit-desktop/ "TikTok Login Kit — Desktop"
+[5]: https://developers.tiktok.com/doc/oauth-user-access-token-management "TikTok OAuth v2 — User Access Token Management"

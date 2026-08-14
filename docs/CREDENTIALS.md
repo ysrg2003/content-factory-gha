@@ -283,28 +283,237 @@ https://www.googleapis.com/auth/youtube.upload
 
 # 6. TikTok
 
-## 6.1 `TIKTOK_ACCESS_TOKEN` — المسار الرسمي
+## 6.1 `TIKTOK_ACCESS_TOKEN` — المسار الرسمي الكامل من الصفر
 
-**الغرض.** يستخدمه `publish_tiktok_api.py` لاستدعاء TikTok Content Posting API. المشروع لا ينشئ token ولا يجددّه تلقائياً؛ يجب أن تستبدل GitHub Secret يدوياً عند انتهاء صلاحيته أو إبطاله.
+**الهدف من هذا القسم.** عند نهايته سيكون لديك User Access Token لحساب TikTok واحد، وستضعه في GitHub Secret باسم `TIKTOK_ACCESS_TOKEN`. هذا هو الرمز الذي يقرأه `scripts/publish_tiktok_api.py`؛ لا يقرأ السكربت `client_key` ولا `client_secret` من GitHub.
 
-**قبل البدء.** تحتاج تطبيقاً مسجلاً في TikTok for Developers، وإضافة **Content Posting API**، وتفعيل إعداد **Direct Post**، وموافقة التطبيق والمستخدم على نطاق `video.publish`. التطبيقات غير المدققة مقيدة بالنشر الخاص حتى تجتاز مراجعة TikTok. [11]
+> **مهم جداً قبل البدء:** لا يمكن إنشاء `TIKTOK_ACCESS_TOKEN` بمجرد نسخ `client_key` أو `client_secret`. الأول يعرّف تطبيقك، والثاني يثبت هوية تطبيقك، أما `access_token` فهو إذن صادر لحساب TikTok بعد أن يسجل مالك الحساب الدخول ويضغط الموافقة. TikTok تنص على أن User Access Token وRefresh Token يجب حفظهما في جهة الخادم.[12]
 
-### خطوة 1: جهز تطبيق TikTok
+### ما ستحتاجه قبل فتح TikTok
 
-1. افتح [TikTok for Developers](https://developers.tiktok.com/) وسجل الدخول بالحساب الذي سيدير التطبيق.
-2. افتح **Manage apps**، وأنشئ تطبيقاً أو افتح التطبيق الحالي.
-3. سجّل Redirect URI صحيحاً للتطبيق واختر تدفق Login Kit المناسب لتطبيق ويب أو سطح مكتب. يجب أن يطابق URI المسجل URI المستخدم في طلب OAuth بالضبط.
-4. أضف منتج **Content Posting API**، ثم فعّل **Direct Post**.
-5. اطلب نطاق `video.publish` واتبع متطلبات الموافقة أو التدقيق في بوابة TikTok.
+| العنصر | هل هو سري؟ | أين تحصل عليه؟ | أين يستخدم؟ |
+|---|---:|---|---|
+| حساب TikTok الذي سينشر المحتوى | لا، لكنه حساب مستهدف | حسابك العادي في TikTok | سيظهر في موافقة OAuth |
+| حساب TikTok for Developers | لا | [developers.tiktok.com](https://developers.tiktok.com/) | إدارة التطبيق |
+| `client_key` | لا، معرف تطبيق | صفحة التطبيق في **Manage apps** | تشغيل رابط التفويض |
+| `client_secret` | نعم | صفحة التطبيق في **Manage apps** | استبدال code بـ tokens؛ لا تضعه في GitHub لهذا المشروع |
+| Redirect URI | لا | القيمة التي تسجلها أنت في التطبيق | يجب أن تطابق الطلب حرفياً |
+| `video.publish` | نطاق صلاحية | إعداد Content Posting API وموافقة TikTok | يسمح بالنشر المباشر |
+| `TIKTOK_ACCESS_TOKEN` | نعم | ناتج OAuth بعد موافقة الحساب | GitHub Secret الذي يقرأه الناشر |
 
-### خطوة 2: فوّض حساب TikTok المستهدف
+### الخطوة 1: أنشئ تطبيق TikTok وسجّل الدخول بالحساب الصحيح
 
-1. نفذ تدفق TikTok OAuth v2 من تطبيقك أو أداتك الآمنة باستخدام Redirect URI المسجل ونطاق `video.publish`.
-2. يسجل مالك حساب TikTok الدخول ويوافق على النطاق المطلوب.
-3. استبدل authorization code عند خادمك للحصول على user access token وrefresh token. تتطلب TikTok موافقة المستخدم مباشرة وتوصي بحفظ الرموز على الخادم فقط. [12]
-4. انسخ **access token** فقط إلى GitHub Secret باسم `TIKTOK_ACCESS_TOKEN`.
+1. افتح [TikTok for Developers](https://developers.tiktok.com/) في متصفحك.
+2. اضغط **Log in**، ثم سجل الدخول بحساب TikTok الذي سيملك التطبيق. إذا كان لديك أكثر من حساب، توقف وتأكد من صورة الحساب أو اسم المستخدم الظاهر في أعلى الصفحة قبل إنشاء التطبيق.
+3. اضغط صورة الحساب أو اسمك في أعلى الصفحة، ثم اختر **Manage apps**. يمكنك أيضاً فتح [صفحة Manage apps مباشرة](https://developers.tiktok.com/apps/).
+4. إذا لم يكن لديك تطبيق، اضغط **Create an app**. إذا كان لديك تطبيق مخصص لمصنع المحتوى، اضغط اسمه بدلاً من إنشاء تطبيق ثانٍ.
+5. عند ظهور نموذج التطبيق، اكتب اسماً واضحاً مثل:
 
-**النتيجة المتوقعة:** يمكن للناشر تشغيل `creator_info/query` واستقبال خيارات خصوصية الحساب. إذا ظهر `scope_not_authorized`، أعد التفويض مع `video.publish`. إذا ظهر `access_token_invalid`، جدد الرمز عبر تدفق OAuth واستبدل Secret. لا تستخدم `client_key` أو `client_secret` بدلاً من user access token؛ هذه قيم مختلفة ولا يقرأها هذا المشروع.
+```text
+Content Factory TikTok Publisher
+```
+
+6. أكمل الحقول الإلزامية التي يعرضها TikTok. واجهة هذه الصفحة قد تختلف حسب بلدك وحالة حسابك؛ لا تختر تطبيقاً تجريبياً عشوائياً ولا تنشئ تطبيقاً باسم قناة واحدة إذا كنت تريد استخدام نفس الناشر لقنوات متعددة.
+7. بعد الحفظ، ابق داخل صفحة التطبيق. أنت الآن في المكان الذي ستجد فيه `client_key` و`client_secret` ومنتجات TikTok.
+
+**ما يجب أن تراه:** صفحة تفاصيل التطبيق أو لوحة بها اسم التطبيق وحالته ومنتجاته. إذا أعادك الموقع إلى تسجيل الدخول، أعد تسجيل الدخول بالحساب الذي يملك التطبيق، ولا تستخدم حساب TikTok مختلفاً عن الحساب الذي تريد تفويضه لاحقاً.
+
+### الخطوة 2: أضف Login Kit واضبط Redirect URI المكتبي
+
+سنستخدم أداة المشروع المحلية `scripts/tiktok_oauth_desktop.py`. لذلك سنستخدم تدفق **Desktop** مع عنوان loopback محلي، وليس عنوان موقع عام.
+
+1. من صفحة تفاصيل التطبيق، ابحث عن قسم **Products** أو **Add products**.
+2. أضف **Login Kit** إذا لم يكن مضافاً. افتح إعدادات Login Kit.
+3. عندما يطلب منك نوع المنصة، اختر **Desktop** أو الخيار الذي يطابق تطبيق سطح مكتب/أداة محلية.
+4. في حقل **Redirect URI** أو **Redirect URI(s)**، أضف هذه القيمة حرفياً، بما في ذلك `http` والمنفذ والشرطة المائلة الأخيرة:
+
+```text
+http://localhost:3455/callback/
+```
+
+5. اضغط **Save** أو **Submit**.
+
+قواعد المطابقة الحرفية هي: `http` لا `https`، المضيف `localhost`، المنفذ `3455`، المسار `/callback/`، والشرطة المائلة الأخيرة موجودة. هذه القيمة لا تساوي `http://localhost:3455/callback` ولا `http://127.0.0.1:3455/callback/`. تسمح وثائق TikTok لتطبيقات سطح المكتب بعناوين localhost أو loopback IP مع منفذ، وتمنع إضافة query parameters أو fragments إلى URI المسجل.[13]
+
+**ما يجب أن تراه:** يبقى Redirect URI محفوظاً في قائمة URIs الخاصة بـ Login Kit. إذا ظهر خطأ في الحفظ، تحقق من أن URI مطلق ويحتوي منفذاً وليس نصاً مثل `localhost:3455/callback/` بلا `http://`.
+
+### الخطوة 3: أضف Content Posting API وفَعّل Direct Post
+
+1. ارجع إلى صفحة التطبيق في TikTok for Developers.
+2. من **Products** اضغط **Add products** أو **Add product**.
+3. اختر **Content Posting API** ثم اضغط **Add** أو **Configure**.
+4. داخل إعدادات Content Posting API، ابحث عن **Direct Post** أو **Direct Post configuration** وفَعّله.
+5. ابحث عن الصلاحية أو النطاق `video.publish`. اطلبه أو فعّله من إعدادات المنتج بحسب ما تعرضه بوابة TikTok.
+6. احفظ التغييرات.
+7. افتح [دليل Content Posting API الرسمي](https://developers.tiktok.com/doc/content-posting-api-get-started/) في تبويب آخر واقرأ قسم **Prerequisites**. يجب أن يكون التطبيق مسجلاً، وأن يكون Content Posting API مضافاً، وأن يكون Direct Post مفعلاً، وأن يكون نطاق `video.publish` معتمداً للتطبيق.[11]
+
+**تنبيه النشر:** التطبيقات غير المدققة قد تكون مقيدة بالنشر الخاص `SELF_ONLY` حتى تجتاز تدقيق TikTok. نجاح OAuth لا يعني أن الفيديو سيظهر للعامة.[11]
+
+**ما يجب أن تراه:** صفحة المنتج تظهر أن Content Posting API مضاف، وDirect Post مفعّل أو في حالة انتظار مراجعة. إذا لم يظهر `video.publish`، فالتطبيق لم يحصل على الصلاحية بعد؛ لا تحاول تخمين اسم نطاق آخر.
+
+### الخطوة 4: انسخ client key وأبقِ client secret خارج GitHub
+
+1. من صفحة التطبيق اضغط **Settings** أو **Basic information**، أو افتح القسم الذي يعرض مفاتيح التطبيق.
+2. انسخ قيمة **Client key** أو `client_key` إلى مدير كلمات المرور المؤقتاً. هذه ليست قيمة `TIKTOK_ACCESS_TOKEN`.
+3. اضغط لإظهار **Client secret** أو `client_secret` وانسخه إلى مدير كلمات المرور. لا تلصقه في Issue أو ملف أو GitHub Secret لهذا المشروع؛ الأداة المحلية ستطلبه في الطرفية بإدخال مخفي.
+4. لا تستخدم زر **Regenerate** إلا إذا كنت مستعداً لإبطال القيمة القديمة وإعادة تفويض التطبيق.
+
+| الاسم | مثال آمن فقط | ما يفعله |
+|---|---|---|
+| `client_key` | `REPLACE_WITH_TIKTOK_CLIENT_KEY` | يحدد أي تطبيق يطلب التفويض |
+| `client_secret` | `REPLACE_WITH_TIKTOK_CLIENT_SECRET` | يثبت هوية التطبيق أثناء استبدال code |
+| `access_token` | `REPLACE_WITH_TIKTOK_ACCESS_TOKEN` | يسمح بطلبات Content Posting نيابة عن المستخدم |
+| `refresh_token` | `REPLACE_WITH_TIKTOK_REFRESH_TOKEN` | يستخدم لتجديد access token وفق دورة TikTok |
+
+### الخطوة 5: شغّل أداة OAuth المحلية من المشروع
+
+هذه الخطوة تتم على جهازك المحلي، وليس داخل GitHub Actions. الأداة تفتح متصفحك، تولّد `state` وPKCE، تستقبل callback على localhost، تتحقق من `state`، ثم تستبدل code بالرموز عبر نقطة TikTok الرسمية. لا تسجل الأداة client secret أو tokens في الطرفية.
+
+افتح Terminal أو PowerShell في مجلد المشروع الذي يحتوي على `scripts/tiktok_oauth_desktop.py`.
+
+**macOS أو Linux:**
+
+```bash
+cd /path/to/content-factory-gha
+python3 -m pip install -r requirements.txt
+TIKTOK_CLIENT_KEY='REPLACE_WITH_TIKTOK_CLIENT_KEY' python3 scripts/tiktok_oauth_desktop.py
+```
+
+**Windows PowerShell:**
+
+```powershell
+Set-Location 'C:\path\to\content-factory-gha'
+py -m pip install -r requirements.txt
+$env:TIKTOK_CLIENT_KEY = 'REPLACE_WITH_TIKTOK_CLIENT_KEY'
+py scripts\tiktok_oauth_desktop.py
+```
+
+لا تضع `client_secret` داخل الأمر. بعد تشغيل الأمر ستظهر مطالبة مثل:
+
+```text
+TikTok client secret (hidden input):
+```
+
+ألصق `client_secret` عندما تظهر المطالبة؛ لن تظهر الأحرف على الشاشة. اضغط Enter. لا تلصق `client_secret` في المثال نفسه ولا ترسله في رسالة.
+
+بعد ذلك تفتح الأداة صفحة TikTok تلقائياً. إذا لم تفتح، انسخ رابط التفويض الذي يظهر في الطرفية والصقه في متصفحك أنت. سجل الدخول إلى **حساب TikTok الذي تريد أن ينشر المشروع باسمه**، وليس بالضرورة الحساب الذي أنشأ تطبيق Developers، ثم راجع شاشة الموافقة.
+
+عندما ترى أن التطبيق يطلب صلاحية `video.publish`، راجع اسم التطبيق والنطاق ثم اضغط **Authorize / Allow / Agree** بحسب النص الظاهر. هذه موافقة مالك حساب TikTok، ولا يجوز تجاوزها أو قبول نطاق لم تقصده.
+
+بعد الموافقة يعيد TikTok المتصفح إلى:
+
+```text
+http://localhost:3455/callback/?code=ONE_TIME_CODE&scopes=video.publish&state=...
+```
+
+لن تنسخ هذا الرابط. ستعرض الأداة صفحة تفيد بأن التفويض وصل، ثم ستعود إلى الطرفية وتتحقق من `state` وتستدعي نقطة token الرسمية تلقائياً.
+
+**ما يجب أن تراه في الطرفية:**
+
+```text
+Opening TikTok authorization in your default browser...
+Registered callback: http://localhost:3455/callback/
+SUCCESS: token response saved locally to .tiktok/tokens.json
+Granted scopes: user.info.basic,video.publish
+Next: copy only access_token to GitHub Secret TIKTOK_ACCESS_TOKEN.
+```
+
+إذا لم يفتح المتصفح، اترك Terminal يعمل وافتح رابط التفويض يدوياً في متصفحك. إذا قال النظام إن المنفذ 3455 مشغول، أغلق البرنامج الذي يستخدمه ثم أعد المحاولة؛ لا تغيّر المنفذ إلا إذا غيّرت Redirect URI في TikTok أولاً.
+
+### الخطوة 6: افهم ملف الناتج قبل نسخ القيمة
+
+بعد النجاح ستنشئ الأداة ملفاً محلياً:
+
+```text
+.tiktok/tokens.json
+```
+
+هذا الملف مستثنى من Git عبر `.gitignore`. لا ترفعه ولا ترسله.
+
+افتح الملف محلياً فقط. ستجد حقولاً مشابهة للآتي، لكن القيم الحقيقية يجب ألا تظهر في مستند أو سجل:
+
+```json
+{
+  "access_token": "REPLACE_WITH_REAL_VALUE",
+  "expires_in": 86400,
+  "open_id": "REPLACE_WITH_PUBLIC_OR_INTERNAL_ID",
+  "refresh_expires_in": 31536000,
+  "refresh_token": "REPLACE_WITH_REAL_VALUE",
+  "scope": "user.info.basic,video.publish",
+  "token_type": "Bearer"
+}
+```
+
+| الحقل | ماذا تفعل به؟ |
+|---|---|
+| `access_token` | انسخه فقط إلى GitHub Secret باسم `TIKTOK_ACCESS_TOKEN` |
+| `refresh_token` | لا يقرأه المشروع الحالي تلقائياً؛ احتفظ به في مدير كلمات مرورك لتجديد access token لاحقاً |
+| `open_id` | هوية TikTok الداخلية للمستخدم؛ لا تضعه في `TIKTOK_ACCESS_TOKEN` |
+| `scope` | يجب أن يحتوي `video.publish` قبل محاولة النشر |
+| `expires_in` | مدة صلاحية access token؛ لا تفترض أنه دائم |
+| `refresh_expires_in` | مدة صلاحية refresh token؛ أعد التفويض قبل انتهائها |
+
+### الخطوة 7: أضف access token إلى GitHub Secret الصحيح
+
+1. افتح صفحة [GitHub Actions Secrets للمستودع](https://github.com/ysrg2003/content-factory-gha/settings/secrets/actions).
+2. تأكد أن العنوان هو مستودع `ysrg2003/content-factory-gha`، وليس مستودعاً آخر.
+3. ابق في تبويب **Secrets**، وليس **Variables**.
+4. اضغط **New repository secret**.
+5. في خانة **Name** اكتب حرفياً:
+
+```text
+TIKTOK_ACCESS_TOKEN
+```
+
+6. افتح ملف `.tiktok/tokens.json` محلياً وانسخ قيمة `access_token` فقط، أي النص بين علامات الاقتباس بعد المفتاح `access_token`. لا تنسخ علامات JSON ولا تنسخ `refresh_token`.
+7. ألصق القيمة في خانة **Secret**.
+8. اضغط **Add secret**.
+9. النتيجة الصحيحة هي ظهور اسم `TIKTOK_ACCESS_TOKEN` في قائمة GitHub من دون ظهور قيمته.
+
+لا تنشئ `TIKTOK_CLIENT_KEY` أو `TIKTOK_CLIENT_SECRET` أو `TIKTOK_REFRESH_TOKEN` في GitHub لهذا المشروع الحالي؛ workflow لا يقرأها. احتفظ بها محلياً فقط لتشغيل أداة OAuth وإعادة التفويض لاحقاً.
+
+### الخطوة 8: نفّذ فحصاً قبل النشر
+
+1. افتح تبويب **Actions** في مستودع GitHub.
+2. اضغط workflow **Process and Publish Short Video**.
+3. اضغط **Run workflow**.
+4. في الاختبار الأول اختر `publish_tiktok=true` فقط، واترك YouTube وInstagram وFacebook على `false`.
+5. اترك `allow_tiktok_browser_fallback=false`؛ لا تستخدم cookies في الاختبار الأول.
+6. أدخل رابط HTTPS مباشر لفيديو MP4 تملك حق استخدامه.
+7. اضغط **Run workflow** وانتظر التشغيل.
+
+قبل النشر، يشغّل المشروع `creator_info/query` عبر نقطة TikTok الرسمية:
+
+```text
+POST https://open.tiktokapis.com/v2/post/publish/creator_info/query/
+Authorization: Bearer <TIKTOK_ACCESS_TOKEN>
+Content-Type: application/json; charset=UTF-8
+```
+
+لن تضع هذه القيمة في الطرفية؛ الناشر يضيفها داخلياً. النجاح يعني أن الاستجابة تحتوي حقولاً مثل `creator_username` و`privacy_level_options` و`max_video_post_duration_sec`. يستخدم المشروع الخيارات المعادة بدلاً من تخمين مستوى الخصوصية. [11] [14]
+
+بعد الفحص، يبدأ Direct Post. إذا كان التطبيق غير مدقق، قد ترى أن الفيديو أصبح `SELF_ONLY` حتى لو اخترت عاماً؛ هذا قيد TikTok، وليس خطأ في Secret.[11]
+
+### إذا فشل TikTok: شخّص الرسالة حرفياً
+
+| الرسالة أو النتيجة | السبب المحتمل | التصحيح الحرفي |
+|---|---|---|
+| `redirect_uri_mismatch` | URI في TikTok لا يساوي URI في الأداة | اجعل القيمة في الاثنين `http://localhost:3455/callback/` حرفياً، بما في ذلك المنفذ والشرطة الأخيرة، ثم أعد OAuth |
+| `invalid_client` | client key أو secret من تطبيق مختلف | افتح نفس التطبيق في Manage apps، وانسخ القيم من صفحة التطبيق الصحيح، ثم أعد الأداة |
+| `invalid_grant` | code منتهي أو استُخدم مرة ثانية أو PKCE غير مطابق | شغّل الأداة من البداية ولا تعِد استخدام رابط callback القديم |
+| `scope_not_authorized` | التطبيق أو التفويض لا يحتوي `video.publish` | فعّل Content Posting API وDirect Post، اطلب النطاق، ثم وافق عليه من حساب TikTok المستهدف وأعد التفويض |
+| `access_token_invalid` | الرمز منتهي أو أُلغي أو نُسخ خطأ | شغّل الأداة مرة أخرى، انسخ `access_token` الجديد فقط، واستبدل GitHub Secret |
+| `401` من `creator_info/query` | Token غير صالح أو لا يخص الحساب المقصود | أعد OAuth وأكد أنك سجلت الدخول بالحساب الذي تريد النشر إليه |
+| `429` أو `rate_limit_exceeded` | تجاوز حد الطلبات | انتظر ولا تعِد تشغيل الحلقة بسرعة؛ الحد الحالي لـ `creator_info/query` هو 20 طلباً في الدقيقة لكل user access token.[14] |
+| التطبيق يرفض النشر العام | العميل غير مدقق | اختبر النشر الخاص أولاً، ثم اتبع [صفحة تدقيق Content Posting API](https://developers.tiktok.com/application/content-posting-api) وقدّم طلب المراجعة |
+| لم ينشئ `tokens.json` | الأداة لم تستلم callback | اترك Terminal مفتوحاً، استخدم متصفحاً على نفس الجهاز، وتأكد من أن المنفذ 3455 غير مشغول |
+
+### التجديد والإلغاء
+
+المشروع الحالي يقرأ `TIKTOK_ACCESS_TOKEN` ولا ينفذ تجديداً تلقائياً من `refresh_token`. عندما تنتهي صلاحية access token، شغّل أداة OAuth من جديد، أو نفذ تدفق التجديد الرسمي على خادم آمن باستخدام `client_key` و`client_secret` و`refresh_token`، ثم استبدل GitHub Secret.
+
+لإلغاء وصول التطبيق، استخدم صفحة إدارة التطبيقات في TikTok أو نقطة الإلغاء الرسمية `https://open.tiktokapis.com/v2/oauth/revoke/` وفق [دليل TikTok لإدارة User Access Tokens](https://developers.tiktok.com/doc/oauth-user-access-token-management). بعد الإلغاء احذف `TIKTOK_ACCESS_TOKEN` من GitHub، واحذف ملف `.tiktok/tokens.json` محلياً، وأنشئ تفويضاً جديداً إذا أردت إعادة الاستخدام.
+
 
 ## 6.2 متغيرات TikTok غير السرية
 
@@ -380,3 +589,6 @@ base64 -w 0 cookies.json
 [10]: https://developers.facebook.com/documentation/instagram-platform/content-publishing "Meta — Instagram Content Publishing"
 [11]: https://developers.tiktok.com/doc/content-posting-api-get-started "TikTok — Content Posting API Get Started"
 [12]: https://developers.tiktok.com/doc/login-kit-manage-user-access-tokens/ "TikTok — Manage User Access Tokens"
+[13]: https://developers.tiktok.com/doc/login-kit-desktop/ "TikTok — Login Kit for Desktop"
+[14]: https://developers.tiktok.com/doc/content-posting-api-reference-query-creator-info "TikTok — Query Creator Info"
+[15]: https://developers.tiktok.com/doc/oauth-user-access-token-management "TikTok — OAuth v2 User Access Token Management"

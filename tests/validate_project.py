@@ -31,6 +31,18 @@ def main() -> None:
     assert "retention-days: 1" in workflow, "Generated videos must have short retention."
     assert "checkout pinned ai provider router" in workflow, "The workflow must install the pinned AI router."
     assert "ai_router_gemini_keys_json" in workflow, "The workflow must pass AI router secrets."
+    oauth_helper = ROOT / "scripts" / "tiktok_oauth_desktop.py"
+    assert oauth_helper.is_file(), "TikTok OAuth helper must exist."
+    oauth_source = oauth_helper.read_text(encoding="utf-8")
+    for required in (
+        "https://www.tiktok.com/v2/auth/authorize/",
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        "http://localhost:{args.port}/callback/",
+        "code_challenge_method",
+        "TIKTOK_ACCESS_TOKEN",
+    ):
+        assert required in oauth_source, f"TikTok OAuth helper is missing {required}."
+    assert "getpass.getpass" in oauth_source, "Client secret must use hidden input."
     assert "check ai provider router configuration" in workflow, "The workflow must run a safe AI router preflight."
     assert "openai_api_key" not in workflow, "No direct OpenAI key is permitted in the workflow."
 
